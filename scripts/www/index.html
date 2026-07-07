@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>精神损失费报销单</title>
+    <style>
+        :root { --pink-main:#ff8fa3; --pink-light:#fff0f3; --pink-bg:#ffeef2; --text-dark:#5d4037; --price-color:#e91e63; }
+        body { font-family:"Microsoft YaHei","PingFang SC",sans-serif; background:var(--pink-bg); margin:0; padding:20px; display:flex; justify-content:center; min-height:100vh; user-select:none; -webkit-user-select:none; }
+        .receipt-card { width:900px; background:white; border-radius:24px; padding:40px; box-shadow:0 10px 30px rgba(255,143,163,0.2); border:3px dashed var(--pink-main); position:relative; overflow:hidden; }
+        .deco { position:absolute; font-size:40px; opacity:0.8; pointer-events:none; }
+        .d1{top:-10px;left:20px;transform:rotate(-15deg)} .d2{top:-10px;right:20px;transform:rotate(15deg)} .d3{bottom:20px;left:50%;transform:translateX(-50%);font-size:30px}
+        h1 { text-align:center; color:var(--pink-main); font-size:32px; margin:0 0 30px; letter-spacing:2px; text-shadow:2px 2px 0 rgba(255,143,163,0.2); }
+        .grid-container { display:grid; grid-template-columns:1fr 1fr; gap:12px 30px; }
+        .item-row { display:flex; justify-content:space-between; align-items:baseline; padding:6px 10px; border-bottom:1px dotted #ffd6e0; font-size:13px; color:var(--text-dark); transition:background 0.2s; }
+        .item-row:hover { background:var(--pink-light); border-radius:8px; }
+        .item-name { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-right:10px; }
+        .item-price { font-weight:bold; color:var(--price-color); font-family:"Courier New",monospace; white-space:nowrap; }
+        .total-section { margin-top:30px; background:linear-gradient(135deg,#ff8fa3,#ff6b8a); border-radius:16px; padding:20px; text-align:center; color:white; font-size:28px; font-weight:bold; letter-spacing:1px; box-shadow:0 4px 15px rgba(255,107,138,0.3); transition:all 0.3s; }
+        .total-section.price-up { animation:priceShake 0.4s ease; background:linear-gradient(135deg,#ff6b8a,#e91e63); }
+
+        /* ===== 🐢 减速核心：延长遮罩和弹窗的动画时长 ===== */
+        .modal-mask { position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:1000; display:none; justify-content:center; align-items:center; backdrop-filter:blur(3px); cursor:pointer; opacity:0; transition:opacity 0.8s ease; }
+        .modal-mask.show { display:flex; opacity:1; }
+        .modal-box { background:white; border-radius:24px; padding:35px 40px; max-width:420px; width:90%; text-align:center; border:3px solid var(--pink-main); box-shadow:0 15px 40px rgba(255,143,163,0.3); position:relative; cursor:default; transform:scale(0.8) translateY(30px); opacity:0; transition:all 0.8s cubic-bezier(0.34,1.56,0.64,1); }
+        .modal-mask.show .modal-box { transform:scale(1) translateY(0); opacity:1; }
+        
+        .modal-icon { font-size:50px; margin-bottom:15px; }
+        .modal-title { font-size:22px; color:var(--pink-main); font-weight:bold; margin-bottom:10px; }
+        .modal-desc { font-size:14px; color:#888; margin-bottom:8px; line-height:1.6; }
+        .modal-penalty { font-size:13px; color:#e91e63; font-weight:bold; margin-bottom:20px; min-height:20px; }
+        .modal-btns { display:flex; gap:15px; justify-content:center; position:relative; z-index:10; }
+        .btn { padding:12px 32px; border-radius:50px; border:none; font-size:16px; font-weight:bold; cursor:pointer; transition:all 0.2s; position:relative; z-index:10; }
+        .btn-agree { background:linear-gradient(135deg,#ff8fa3,#ff6b8a); color:white; box-shadow:0 4px 12px rgba(255,107,138,0.3); }
+        .btn-agree:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(255,107,138,0.4); }
+        .btn-reject { background:#f5f5f5; color:#999; border:2px solid #eee; }
+        .btn-reject:hover { background:#eee; color:#777; }
+
+        .plus-one { position:fixed; pointer-events:none; z-index:9999; font-size:24px; font-weight:bold; color:#e91e63; font-family:"Courier New",monospace; text-shadow:0 2px 4px rgba(233,30,99,0.3); animation:floatUp 0.8s ease-out forwards; }
+        @keyframes floatUp { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-60px) scale(1.3)} }
+
+        .upload-overlay { position:fixed; inset:0; background:rgba(255,240,243,0.95); z-index:2000; display:none; flex-direction:column; justify-content:center; align-items:center; }
+        .upload-overlay.show { display:flex; animation:fadeIn 0.3s ease; }
+        .upload-icon { font-size:60px; margin-bottom:20px; animation:bounce 1s infinite; }
+        .upload-text { font-size:18px; color:var(--pink-main); font-weight:bold; margin-bottom:15px; }
+        .progress-bar-bg { width:300px; height:12px; background:#ffd6e0; border-radius:10px; overflow:hidden; }
+        .progress-bar-fill { height:100%; width:0%; background:linear-gradient(90deg,#ff8fa3,#ff6b8a); border-radius:10px; transition:width 0.1s linear; }
+        .upload-percent { margin-top:10px; font-size:14px; color:#aaa; font-family:"Courier New",monospace; }
+        .upload-status { margin-top:8px; font-size:12px; color:#ccc; min-height:18px; }
+        .success-card { position:fixed; inset:0; z-index:3000; display:none; justify-content:center; align-items:center; background:rgba(255,240,243,0.97); }
+        .success-card.show { display:flex; animation:fadeIn 0.5s ease; }
+        .success-inner { text-align:center; animation:popIn 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+        .success-emoji { font-size:80px; margin-bottom:20px; }
+        .success-title { font-size:28px; color:var(--pink-main); font-weight:bold; margin-bottom:10px; }
+        .success-desc { font-size:16px; color:#888; line-height:1.8; }
+
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}} 
+        @keyframes popIn{from{opacity:0;transform:scale(0.8) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}} 
+        @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}} 
+        @keyframes priceShake{0%{transform:scale(1)}25%{transform:scale(1.05)}50%{transform:scale(0.98)}75%{transform:scale(1.03)}100%{transform:scale(1)}}
+        @media(max-width:960px){ .receipt-card{width:100%;padding:20px;} .grid-container{grid-template-columns:1fr;} }
+    </style>
+</head>
+<body>
+
+<div class="receipt-card">
+    <div class="deco d1">🍓</div><div class="deco d2">🐱</div><div class="deco d3">  </div>
+    <h1>🎀 报销申请单 🎀</h1>
+    <div class="grid-container" id="listContainer"></div>
+    <div class="total-section" id="totalDisplay"></div>
+</div>
+
+<div class="modal-mask" id="confirmModal">
+    <div class="modal-box" id="modalBox">
+        <div class="modal-icon" id="modalIcon">🥺</div>
+        <div class="modal-title" id="modalTitle"></div>
+        <div class="modal-desc">以上费用均为本人真实（大概）的心灵损失<br>请问是否同意支付治愈基金？<br><span style="font-size:12px;color:#bbb;">（点击弹窗外任意位置退出）</span></div>
+        <div class="modal-penalty" id="modalPenalty"></div>
+        <div class="modal-btns">
+            <button class="btn btn-reject" id="btnReject">拒绝申请</button>
+            <button class="btn btn-agree" id="btnAgree">同意申请 💕</button>
+        </div>
+    </div>
+</div>
+
+<div class="upload-overlay" id="uploadOverlay">
+    <div class="upload-icon">📡</div>
+    <div class="upload-text">正在上传终端...</div>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+    <div class="upload-percent" id="uploadPercent">0%</div>
+    <div class="upload-status" id="uploadStatus">准备中...</div>
+</div>
+
+<div class="success-card" id="successCard">
+    <div class="success-inner">
+        <div class="success-emoji">🥰</div>
+        <div class="success-title">上传成功 请完成支付！</div>
+        <div class="success-desc" id="successDesc"></div>
+    </div>
+</div>
+
+<script>
+    // ===== 🎵 纯代码合成音乐引擎 =====
+    const MusicEngine = (() => {
+        let ctx = null;
+        let bgmNodes = [];
+        let isPlaying = false;
+        const init = () => { 
+            if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); 
+            if (ctx.state === 'suspended') ctx.resume();
+        };
+        const createNote = (freq, type, startTime, duration, vol = 0.08) => {
+            if (!ctx) return;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(vol, startTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+            return { osc, gain };
+        };
+        const playBGM = () => {
+            init();
+            if (!ctx || isPlaying) return;
+            isPlaying = true;
+            const melody = [523.25, 659.25, 783.99, 659.25, 523.25, 783.99, 659.25, 523.25, 587.33, 698.46, 880.00, 698.46, 587.33, 880.00, 698.46, 587.33];
+            const noteDur = 0.35;
+            const loopDur = melody.length * noteDur;
+            const scheduleLoop = () => {
+                if (!isPlaying || !ctx) return;
+                const now = ctx.currentTime + 0.1;
+                melody.forEach((freq, i) => {
+                    const node = createNote(freq, 'sine', now + i * noteDur, noteDur * 0.9, 0.06);
+                    if (node) bgmNodes.push(node);
+                });
+                setTimeout(scheduleLoop, loopDur * 1000 - 200);
+            };
+            scheduleLoop();
+        };
+        const stopBGM = () => {
+            isPlaying = false;
+            bgmNodes.forEach(n => { try { n.osc.stop(); } catch(e){} });
+            bgmNodes = [];
+        };
+        const playPoke = () => { init(); if (!ctx) return; createNote(1320, 'sine', ctx.currentTime, 0.12, 0.8); };
+        const playReject = () => {
+            init(); if (!ctx) return;
+            const osc = ctx.createOscillator(); const gain = ctx.createGain();
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(220, ctx.currentTime);
+            osc.frequency.linearRampToValueAtTime(180, ctx.currentTime + 0.25);
+            gain.gain.setValueAtTime(0.9, ctx.currentTime); gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.3);
+        };
+        const playSuccess = () => {
+            init(); if (!ctx) return;
+            [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => { createNote(freq, 'sine', ctx.currentTime + i * 0.1, 0.4, 0.12); });
+        };
+        return { playBGM, stopBGM, playPoke, playReject, playSuccess };
+    })();
+
+    // ===== 数据与状态 =====
+    const names = ["精神损失费","心灵创伤抚慰费","诊疗医药费","术后营养费","复诊往返交通费","异地就医住宿费","病号专属餐饮补助","医用耗材购置款","全套复查检查费","康复解馋零食费","情绪精神滋养费","陪护心理安慰费","熬夜疗伤续命奶茶费","伤口观赏拍照滤镜费","委屈落泪纸巾消耗费","哄自己开心鲜花采购费","缓解烦躁游戏充值补贴","躺平休养懒人抱枕购置费","止痛治愈动漫会员年费","伤口消肿冷敷冰袋费用","独自养病孤单陪伴玩偶费","吐槽遭遇语音通话话费","缓解焦虑香薰蜡烛开销","养病期间追剧零食大礼包","平复情绪轻音乐会员费","走路磕碰减震拖鞋采购费","平复委屈冰淇淋补偿款","缓解压抑室内绿植养护费","受伤后怕心理疏导费用","休养专用柔软毛毯购置费","排解郁闷短视频流量补贴","缓解惊吓安神糖果开销","养病解闷拼图玩具采购费","抚平内心委屈蛋糕补偿款","伤口防护卡通创可贴费用","舒缓压力泡澡浴盐购置费","独自看病恐惧心理补偿","休养保暖暖手宝购置开销","排解难受搞笑漫画购买费","平复心痛巧克力补偿款项","缓解失眠助眠眼罩购置费","养病解闷有声书会员年费","惊吓过后安神牛奶采购费","抚平emo小众香包开销","行动不便懒人吸管杯费用","舒缓坏心情抓娃娃机经费","受伤后怕安神泡脚包开销","排解难过毛绒靠垫购置费","缓解压抑线下脱口秀门票","休养补水高颜值水杯费用","委屈情绪录音记录话费","治愈不开心盲盒采购经费","伤口护理医用碘伏耗材费","舒缓焦虑桌面解压玩具费","独自休养孤单电影票补贴","平复烦躁水果切盒补偿款","缓解酸痛热敷艾草包开销","养病解闷手工DIY材料费用","惊吓过后安神菊花茶采购","抚平低落氛围感小夜灯费","行动不便一次性餐盒补贴","治愈难过特色甜品补偿款","缓解心慌舒缓白噪音会员","休养遮光加厚窗帘购置费","排解憋屈KTV唱歌放松经费","伤口防水医用防护贴开销","舒缓压力按摩梳购置费用","平复心碎网红奶茶第二杯","缓解无聊桌游卡牌采购费","独自就医打车溢价补偿款","安神助眠薰衣草干花开销","抚平郁闷可爱贴纸手账经费","缓解肿胀医用弹力绷带费","休养解馋卤味小吃补偿款","排解焦虑线上心理咨询费","舒缓酸痛迷你筋膜枪开销","平复难过限定款汽水采购","养病解闷积木拼装玩具费","惊吓过后安神银耳羹耗材","抚平低落毛绒拖鞋购置费","缓解失眠蒸汽眼罩囤货款","排解压抑线下撸宠馆门票","行动不便床上小桌板费用","治愈委屈特色糖水补偿款","舒缓情绪无火香薰补充液","休养降噪静音耳塞购置费","排解难受搞笑段子书采购","缓解疼痛卡通热敷贴开销","平复心碎限定蛋糕礼盒费","养病解闷怀旧游戏机补贴","独自休养孤单鲜花花瓶费","舒缓烦躁气泡水果茶补偿","缓解僵硬医用按摩球开销","抚平emo治愈系绘本采购费","惊吓过后安神小米粥食材","休养保暖珊瑚绒袜子囤货","排解憋屈剧本杀放松经费","伤口清洁医用棉片耗材费","舒缓压力云朵坐垫购置费","全程心理创伤综合抚慰金","心碎情绪缓冲专用酸奶开销","养病发呆观景落地窗贴画费","受委屈专属录音笔耗材补贴","缓解躯体酸痛便携按摩锤","惊吓后遗症安神酸枣仁茶饮","独自卧床追剧超大抱枕经费","抚平难受网红马卡龙补偿款","伤口防磨柔软棉质护腕采购","舒缓压抑轻音乐黑胶唱片费","行动不便床边零食收纳小筐","排解郁闷线下密室散心门票","缓解心慌静心菩提手串开销","养病解闷复古胶片相机耗材","平复低落海盐芝士奶盖补贴","磕碰后怕随身平安挂饰采购","舒缓失眠助眠香包填充香料","独自复诊雨天雨伞损耗补偿","治愈emo治愈系油画填色套装","缓解肿胀消肿泡脚草药包","抚平委屈限定奶油泡芙礼盒","养病降噪头戴式蓝牙耳机费","排解焦虑多肉盆栽全套养护","惊吓过后温补红枣桂圆食材","舒缓压力捏捏乐解压小玩具","行动不便免洗懒人洁面泡沫","平复心碎限定果酒小瓶装费","养病解闷怀旧卡牌收藏套装","缓解烦躁室内迷你加湿器","独自休养深夜暖胃关东煮款","舒缓疼痛艾草颈椎热敷包","排解憋屈自助烧烤散心经费","抚平低落星星造型氛围台灯","伤口消毒一次性酒精棉囤货","缓解无聊拼插航天模型耗材","惊吓安神蜂蜜雪梨炖品原料","休养柔软云朵防滑居家拖鞋","舒缓情绪车载香薰替换精油","平复委屈手工奶油胶DIY材料","行动不便床上靠腰护脊靠垫","排解难过治愈系猫咪周边费","缓解僵硬全身舒缓拉伸筋膜带","养病解馋网红糯叽叽麻薯补偿","惊吓过后静心莲子百合粥材","舒缓压力超大号毛绒玩偶抱枕","独自看病随身便携保温水杯","抚平emo治愈系动漫周边盲盒","缓解失眠恒温热敷暖宫腰带","排解压抑室内桌面小造景耗材","磕碰后怕随身薄荷舒缓清凉油","养病解闷趣味立体拼图套装","舒缓心慌静心白噪音音箱设备","平复难过冰镇鲜榨果汁补偿款","行动不便一次性免洗床单被套","排解焦虑线下陶艺手工体验票","惊吓安神桂花蜜润喉养生糖浆","舒缓疼痛迷你手持刮痧板套装","抚平低落复古胶片相册收纳册","养病解馋香辣解馋小鱼干补贴","缓解肿胀医用透气弹力护膝","排解憋屈私人影院包场放松费","舒缓情绪薰衣草助眠喷雾耗材","平复心碎定制刻字安抚小摆件","养病解闷怀旧掌上游戏机卡带","缓解烦躁窗边风铃治愈小挂件","独自休养深夜暖胃羊杂汤开销","舒缓酸痛全身放松泡沫沐浴球","抚平委屈马卡龙色系手账套装","惊吓过后温补山药养胃食材","缓解无聊趣味桌游剧本道具包","排解焦虑线上云撸猫会员充值","舒缓失眠蚕丝透气遮光睡眠眼罩","平复难过网红冰皮月饼补偿款","行动不便床边可折叠懒人支架","养病治愈多肉营养土花盆全套","磕碰后怕随身便携安神薄荷糖","舒缓压力流体熊手工涂色材料包","平复低落星空夜光墙面贴纸套装","排解郁闷城市观光散心观光车票","惊吓安神麦冬润喉养生茶饮包","舒缓疼痛艾草暖足贴囤货开销","养病解馋海盐芝士脆片小零食","缓解僵硬全身拉伸瑜伽弹力带","抚平emo治愈系治愈风景明信片","独自复诊随身便携折叠遮阳伞","舒缓情绪无火香薰陶瓷扩香瓶","排解焦虑室内桌面泡泡玛特收纳","惊吓过后温补桂圆枸杞养生茶","缓解心慌静心禅意流苏手捻串","养病解闷复古磁带随身听耗材","平复委屈网红千层甜品蛋糕款","行动不便一次性防水防护袖套","舒缓酸痛迷你电动按摩颈椎仪","排解憋屈露营散心野餐全套耗材","抚平低落云朵造型午休睡眠枕","缓解失眠助眠草本填充睡眠香囊","磕碰后怕随身便携舒缓热敷片","舒缓压力巨型解压泡沫捏捏玩偶","养病解馋冰镇酸梅汤自制原料包","惊吓后遗症长期情绪缓释抚慰金","休养全程独处治愈氛围感搭建费"];
+
+    const BASE_TOTAL = 648.00;
+    const PENALTY_PER_REJECT = 18.00;
+    const COUNT = names.length;
+    let rejectCount = 0;
+    let clickAddTotal = 0;
+    let currentTotal = BASE_TOTAL;
+    let hasTriggered = false;
+
+    function generateAmounts(total) {
+        let amounts=[], sum=0;
+        for(let i=0;i<COUNT;i++){
+            if(i===COUNT-1){ amounts.push(Math.round((total-sum)*10)/10); }
+            else{
+                const rem=COUNT-i-1, minN=rem*0.1, maxA=total-sum-minN, upper=Math.min(8.8,maxA);
+                if(upper<=0.1){amounts.push(0.1);sum+=0.1;}
+                else{let v=Math.round((Math.random()*(upper-0.1)+0.1)*10)/10;amounts.push(v);sum+=v;}
+            }
+        }
+        return amounts;
+    }
+
+    function renderList(total) {
+        const amounts=generateAmounts(total);
+        const c=document.getElementById('listContainer');
+        let h='';
+        for(let i=0;i<COUNT;i++) h+=`<div class="item-row"><span class="item-name">${i+1}. ${names[i]}</span><span class="item-price">¥${amounts[i].toFixed(1)}</span></div>`;
+        c.innerHTML=h;
+        const el=document.getElementById('totalDisplay');
+        el.innerHTML=`🎉 申请金额：¥${total.toFixed(2)} 🎉`;
+        el.classList.remove('price-up'); void el.offsetWidth; el.classList.add('price-up');
+    }
+    renderList(currentTotal);
+
+    const modal=document.getElementById('confirmModal');
+    const modalBox=document.getElementById('modalBox');
+    const penaltyEl=document.getElementById('modalPenalty');
+    const modalIcon=document.getElementById('modalIcon');
+    const modalTitle=document.getElementById('modalTitle');
+
+    function updateModalText() {
+        if(rejectCount>0){
+            modalIcon.textContent=rejectCount>=3?'😤':'🥺';
+            modalTitle.textContent=rejectCount>=3?'最后警告！':'再给你一次机会～';
+        }else{
+            modalIcon.textContent='🥺'; 
+            modalTitle.textContent='「赔偿基金确认书」已送达 💌';
+        }
+        let penaltyText = '';
+        if (rejectCount > 0) penaltyText += `⚠️ 伤心${rejectCount}次(精神损失费+${(rejectCount*PENALTY_PER_REJECT).toFixed(0)})元`;
+        if (clickAddTotal > 0) penaltyText += `${penaltyText ? ' | ' : ''}💕 打赏+${clickAddTotal.toFixed(0)}元`;
+        penaltyEl.textContent = penaltyText;
+    }
+
+    // ===== 🐢 减速核心：JS延迟触发 =====
+    function showModal(){
+        updateModalText();
+        // 延迟300ms再添加show类，让CSS过渡有充分的准备时间
+        setTimeout(() => {
+            modal.classList.add('show'); 
+            document.body.style.overflow='hidden';
+        }, 300);
+    }
+
+    // ===== 🐢 减速核心：放宽滚动触发阈值 =====
+    window.addEventListener('scroll',()=>{
+        if(hasTriggered)return;
+        const st=window.scrollY||document.documentElement.scrollTop, wh=window.innerHeight, dh=document.documentElement.scrollHeight;
+        // 将触发距离从50px放宽到200px，避免刚到底部就瞬间弹出
+        if(st+wh>=dh-200){hasTriggered=true;showModal();}
+    });
+
+    function spawnPlusOne(x,y){
+        const el=document.createElement('div');
+        el.className='plus-one';
+        el.textContent='哎嘿';
+        el.style.left=x+'px'; el.style.top=y+'px';
+        document.body.appendChild(el);
+        setTimeout(()=>el.remove(),800);
+    }
+
+    function handlePoke(e) {
+        clickAddTotal += 1;
+        currentTotal = BASE_TOTAL + rejectCount*PENALTY_PER_REJECT + clickAddTotal;
+        renderList(currentTotal);
+        spawnPlusOne(e.clientX, e.clientY);
+        updateModalText();
+        MusicEngine.playPoke();
+    }
+
+    modal.addEventListener('click',(e)=>{
+        if(e.target.closest('.btn')) return;
+        handlePoke(e);
+    });
+
+    modalBox.addEventListener('click',(e)=>{
+        if(e.target.closest('.btn')) return;
+        e.stopPropagation();
+        handlePoke(e);
+    });
+
+    document.getElementById('btnReject').addEventListener('click',(e)=>{
+        e.stopPropagation();
+        rejectCount++;
+        currentTotal=BASE_TOTAL+rejectCount*PENALTY_PER_REJECT+clickAddTotal;
+        renderList(currentTotal);
+        modal.classList.remove('show'); 
+        document.body.style.overflow='';
+        MusicEngine.playReject();
+        setTimeout(showModal,800);
+    });
+
+    // ===== 慢速拟真上传 + BGM =====
+    const fakeSteps = [
+        { p: 3,  s: "🔒 建立端到端加密通道..." },
+        { p: 7,  s: "📡 搜索相册信息..." },
+        { p: 12, s: "✅ 注入同步scker..." },
+        { p: 16, s: "📥 开始解析JPG..." },
+        { p: 21, s: "🧩 提取中..." },
+        { p: 26, s: "💊 扫描摄像头版本..." },
+        { p: 31, s: "⏳ 读取成功iOSprb注入中..." },
+        { p: 34, s: "⏳ 关闭拍照闪光中..." },
+        { p: 39, s: "🎀 模拟ictosny外壳..." },
+        { p: 44, s: "🖼️ 前置摄像头拍摄中..." },
+        { p: 49, s: "✍️ smc写入中..." },
+        { p: 54, s: "💾 数据封包中..." },
+        { p: 59, s: "🔍 交叉验证一致性..." },
+        { p: 64, s: "⚠️ 检测到UCK，重新校准..." },
+        { p: 69, s: "🎵 加载drapstar..." },
+        { p: 74, s: "📦 回执数据包..." },
+        { p: 79, s: "🔄 最终完整性校验..." },
+        { p: 85, s: "✨ 资源上传中..." },
+        { p: 92, s: "🚀 删除注入记录..." },
+        
+{ p: 99,s: "清理同步记录..." },
+{ p: 99,s: "💖 -97688✓" },
+{ p: 99,s: "💖 -86178✓" },
+{ p: 99,s: "💖 -57445✓" },
+{ p: 99,s: "💖 -34468✓" },
+{ p: 99,s: "💖 -22801✓" },
+{ p: 99,s: "💖 -11493✓" },
+{ p: 99,s: "💖 -5748✓" },
+{ p: 99,s: "💖 -58✓" },
+{ p: 99,s: "💖 -0✓" },
+
+    ];
+
+    let isUploading = false;
+    let uploadTimer = null;
+
+    document.getElementById('btnAgree').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (isUploading) return; 
+        isUploading = true;
+        modal.classList.remove('show'); 
+        document.body.style.overflow = 'hidden';
+        uploadOverlay.classList.add('show');
+        MusicEngine.playBGM();
+        progressFill.style.width = '0%';
+        uploadPercent.textContent = '0%';
+        uploadStatus.textContent = '准备中...';
+        let idx = 0;
+        function nextStep() {
+            if (idx >= fakeSteps.length) {
+                setTimeout(() => {
+                    MusicEngine.stopBGM();
+                    MusicEngine.playSuccess();
+                    showSuccess();
+                    isUploading = false;
+                }, 800);
+                return;
+            }
+            const step = fakeSteps[idx];
+            progressFill.style.width = step.p + '%';
+            uploadPercent.textContent = step.p + '%';
+            uploadStatus.textContent = step.s;
+            idx++;
+            let delay = 600 + Math.random() * 800;
+            if (step.s.startsWith('⏳') || step.s.startsWith('⚠️')) delay += 1500;
+            uploadTimer = setTimeout(nextStep, delay);
+        }
+        if (uploadTimer) clearTimeout(uploadTimer);
+        nextStep();
+    });
+
+    function showSuccess(){
+        uploadOverlay.classList.remove('show');
+        const card=document.getElementById('successCard');
+        document.getElementById('successDesc').innerHTML=`已账单已累计 ¥${currentTotal.toFixed(2)} 治愈基金<br>（基础648元 + 精神损失费${(rejectCount*PENALTY_PER_REJECT).toFixed(0)}元 + 打赏${clickAddTotal.toFixed(0)}元）<br>请按时履行支付义务✨<br><span style="font-size:13px;color:#bbb;margin-top:10px;display:inline-block;">（本次获取的数据已同步上传至云端备份 💕）</span>`;
+        card.classList.add('show');
+    }
+</script>
+</body>
+</html>
